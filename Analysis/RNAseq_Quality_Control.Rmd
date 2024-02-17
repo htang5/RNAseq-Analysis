@@ -1,0 +1,32 @@
+---
+title: "RNAseq Quality Control"
+output: html_document
+date: "2023-12-07"
+---
+
+# Background
+> This is the RNA seq data quality control step with fastqcr.
+
+```{r setup, message=FALSE}
+require(fastqcr)
+```
+
+# Import data and generate report
+```{r}
+fastqc(fq.dir = "/space/htang5/Documents/RNAseq_Fastq/fastq", 
+       qc.dir = "/space/htang5/Documents/RNAseq_Fastq/QC_report",
+       threads = 4                    
+       )
+```
+# Alignment with Rbowtie
+
+```{r}
+library(Rbowtie)
+```
+
+>Build referance index
+
+```{r}
+
+```
+
