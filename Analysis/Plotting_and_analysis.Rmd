@@ -1,0 +1,74 @@
+---
+title: "RNAseq Plotting and Analysis"
+output: html_document
+date: "2023-12-07"
+---
+
+# Background
+> We are plotting the RNAseq read count from diverse species and gainning insights to the expression change of the alternative carbohydrates metabolism genes.
+
+```{r setup, message=FALSE}
+require(ggplot2)
+require(DESeq2)
+require(pheatmap)
+```
+
+# Import read count data
+```{r}
+Cgcount <- as.matrix(read.table("/space/htang5/Documents/RNAseq_Fastq/readcount/Cg_rawCounts_newIDs.txt", header=TRUE, row.names=1))
+Sccount <- as.matrix(read.table("/space/htang5/Documents/RNAseq_Fastq/readcount/Sc_rawCounts_CDS.txt", header=TRUE, row.names=1))
+Klcount <- as.matrix(read.table("/space/htang5/Documents/RNAseq_Fastq/readcount/Kl_rawCounts_cbs2105.txt", header=TRUE, row.names=1))
+Cacount <- as.matrix(read.table("/space/htang5/Documents/RNAseq_Fastq/readcount/Ca_rawCounts.txt", header=TRUE, row.names=1))
+print(Cgcount)
+```
+# Normalize read count
+```{r}
+dds <- DESeqDataSetFromMatrix(countData = Cgcount,
+                              colData = NULL,
+                              design = ~ 1)
+
+# Estimate size factors
+dds <- estimateSizeFactors(dds)
+
+# Normalize counts
+Cgnormalized_counts <- counts(dds, normalized = TRUE)
+
+print(Cgnormalized_counts)
+```
+
+
+# Filter out relevant genes
+> Cg genes:
+TPS1: GWK60_J09625; CAGL0J09812g
+TPS2: GWK60_G05137; CAGL0G05335g
+Ath1 (extracellular trehalase): GWK60_K04983; CAGL0K05137g
+neutral trehalases Nth1:GWK60_M10417; CAGL0M10439g
+Nth2: GWK60_C03861; CAGL0C04323g
+
+```{r}
+# Define genes and samples to keep
+genes_to_keep <- c("CAGL0J09812g", "CAGL0G05335g", "CAGL0K05137g", "CAGL0M10439g", "CAGL0C04323g")
+samples_to_keep <- c("CgB41", "Cg15m1", "Cg30m1", "Cg45m1","Cg1h1","Cg1.5h1","Cg2h1","Cg3h1", "Cg4h1","Cg6h1","Cg8h1")
+
+# Filter rows (genes)
+Cgfiltered_count_matrix <- Cgcount[genes_to_keep, ]
+
+# Filter columns (samples)
+Cgfiltered_count_matrix <- Cgfiltered_count_matrix[, colnames(Cgfiltered_count_matrix) %in% samples_to_keep]
+
+print(Cgfiltered_count_matrix)
+```
+
+>Build heatmap
+
+```{r}
+pheatmap(Cgfiltered_count_matrix, 
+         cluster_rows = FALSE, 
+         cluster_cols = FALSE, 
+         scale = "row",
+         main = "Heatmap of Filtered RNA-seq Data",
+         fontsize = 8
+         )
+ggsave("../output/heatmap.png")
+```
+
