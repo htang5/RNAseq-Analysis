@@ -1,0 +1,190 @@
+---
+title: "RNAseq Plotting and Analysis"
+output: html_document
+date: "2023-12-07"
+---
+
+# Background
+> We are plotting the RNAseq read count from diverse species and gainning insights to the expression change of the alternative carbohydrates metabolism genes.
+
+```{r setup, message=FALSE}
+require(ggplot2)
+require(DESeq2)
+require(pheatmap)
+```
+
+# Import read count data
+```{r}
+Cgcount <- as.matrix(read.table("/space/htang5/Documents/RNAseq_Fastq/readcount/Cg_rawCounts_newIDs.txt", header=TRUE, row.names=1))
+Sccount <- as.matrix(read.table("/space/htang5/Documents/RNAseq_Fastq/readcount/Sc_rawCounts_CDS.txt", header=TRUE, row.names=1))
+Klcount <- as.matrix(read.table("/space/htang5/Documents/RNAseq_Fastq/readcount/Kl_rawCounts_cbs2105.txt", header=TRUE, row.names=1))
+Cacount <- as.matrix(read.table("/space/htang5/Documents/RNAseq_Fastq/readcount/Ca_rawCounts.txt", header=TRUE, row.names=1))
+print(Klcount)
+```
+# Normalize read count
+```{r}
+dds <- DESeqDataSetFromMatrix(countData = Cgcount,
+                              colData = NULL,
+                              design = ~ 1)
+
+# Estimate size factors
+dds <- estimateSizeFactors(dds)
+
+# Normalize counts
+Cgnormalized_counts <- counts(dds, normalized = TRUE)
+
+print(Cgnormalized_counts)
+```
+
+
+# Filter out relevant genes for -Pi in K.lactis
+> Kl genes IDs:
+CTA1: KDRO_D04960
+SOD1: KDRO_F08110
+SOD2: KDRO_F09000
+PRX1: KDRO_E02320
+CTT1: KDRO_D06290
+
+MSN2/4:KDRO_A00700
+
+
+```{r}
+# Define genes and samples to keep
+genes_to_keep <- c("KDRO_D04960", "KDRO_F08110", "KDRO_F09000", "KDRO_E02320", "KDRO_A00700")
+samples_to_keep <- c("KlB41", "Kl45m3")
+
+# Filter rows (genes)
+Klfiltered_count_matrix <- Klcount[genes_to_keep, ]
+
+# Filter columns (samples)
+Klfiltered_count_matrix <- Klfiltered_count_matrix[, colnames(Klfiltered_count_matrix) %in% samples_to_keep]
+
+Genes <- c("CTA1", "SOD1", "SOD2", "PRX1", "MSN2/4")
+Species <- c("K. lactis", "K. lactis", "K. lactis", "K. lactis", "K. lactis")
+
+# Bind the new column to the matrix
+Klfiltered_count_matrix <- cbind(Klfiltered_count_matrix, Genes, Species)
+
+print(Klfiltered_count_matrix)
+#write.table(Klfiltered_count_matrix, file = "../Output/20240229-Klfilteredcount.tsv")
+```
+
+# Filter out relevant genes in Cg
+> Cg genes IDs:
+CTA1: CAGL0K10868g
+SOD1: CAGL0C04741g
+SOD2: CAGL0E04356g 
+PRX1: CAGL0A04433g
+
+MSN4: CAGL0M13189g
+
+```{r}
+# Define genes and samples to keep
+genes_to_keep <- c("CAGL0K10868g", "CAGL0C04741g", "CAGL0E04356g", "CAGL0A04433g", "CAGL0M13189g")
+samples_to_keep <- c("CgB41", "Cg45m1")
+
+# Filter rows (genes)
+Cgfiltered_count_matrix <- Cgcount[genes_to_keep, ]
+
+# Filter columns (samples)
+Cgfiltered_count_matrix <- Cgfiltered_count_matrix[, colnames(Cgfiltered_count_matrix) %in% samples_to_keep]
+
+Genes <- c("CTA1", "SOD1", "SOD2", "PRX1", "MSN2/4")
+Species <- c("C. glabrata", "C. glabrata", "C. glabrata", "C. glabrata", "C. glabrata")
+
+# Bind the new column to the matrix
+Cgfiltered_count_matrix <- cbind(Cgfiltered_count_matrix, Genes, Species)
+
+print(Cgfiltered_count_matrix)
+#write.table(Cgfiltered_count_matrix, file = "../Output/20240229-Cgfilteredcount.tsv")
+```
+> Graph Cg and Kl
+
+```{r}
+combined <- rbind(Klfiltered_count_matrix, Cgfiltered_count_matrix)
+combined <- as.data.frame(combined)
+combined$KlB41 <- as.numeric(combined$KlB41)
+combined$Kl45m3 <- as.numeric(combined$Kl45m3)
+combined$Folds <- combined$Kl45m3 / combined$KlB41
+print(combined)
+```
+
+```{r}
+combined %>%
+  mutate (Genes = factor(Genes, levels = c("CTA1", "PRX1", "SOD1", "SOD2", "MSN2/4"))) %>%
+ggplot(aes(x = Genes, y = Folds, fill = Species)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(x = "Genes", y = "Folds Induction", fill = "Species") +
+  panel_border(color = "black", size = 1.5) +
+  theme_minimal() +
+  geom_hline(yintercept = 1, linetype = "dashed", color = "black") +
+  theme(axis.line = element_blank(),
+        strip.background = element_blank(),
+        axis.text.x = element_text(size = 18, face = "bold", color = "black"),  # Adjust size and face (bold)
+        axis.text.y = element_text(size = 20, face = "bold", color = "black"),
+        axis.title.x = element_text(size = 20, face = "bold"),
+        axis.title.y = element_text(size = 20, face = "bold"),
+        legend.text = element_text(size = 20, face = "bold"),
+        legend.title = element_text(size = 20, face = "bold")
+        )+ 
+  theme(strip.text = element_text(size = 20, face = "bold")) 
+```
+
+
+
+# Filter out relevant genes in Sc
+> Sc genes IDs:
+CTA1: YGR088W
+SOD1: YJR104C
+SOD2: YHR008C
+PRX1: YBL064C
+
+```{r}
+# Define genes and samples to keep
+genes_to_keep <- c("YGR088W", "YJR104C", "YHR008C", "YBL064C")
+samples_to_keep <- c("ScB42",  "Sc30m2", "Sc1h2", "Sc1.5h2", "Sc2h2", "Sc2.5h2", "Sc3h2", "Sc3.5h2", "Sc4h2", "Sc6h2", "Sc8h2")
+
+# Filter rows (genes)
+Scfiltered_count_matrix <- Sccount[genes_to_keep, ]
+
+# Filter columns (samples)
+Scfiltered_count_matrix <- Scfiltered_count_matrix[, colnames(Scfiltered_count_matrix) %in% samples_to_keep]
+
+print(Scfiltered_count_matrix)
+
+```
+
+
+>Build heatmap
+
+```{r}
+pheatmap(Klfiltered_count_matrix, 
+         cluster_rows = FALSE, 
+         cluster_cols = FALSE, 
+         scale = "row",
+         main = "Heatmap of Filtered RNA-seq Data",
+         fontsize = 8
+         )
+#ggsave("../output/heatmap.png")
+```
+
+```{r}
+pheatmap(Cgfiltered_count_matrix, 
+         cluster_rows = FALSE, 
+         cluster_cols = FALSE, 
+         scale = "row",
+         main = "Heatmap of Filtered RNA-seq Data",
+         fontsize = 8
+         )
+#ggsave("../output/heatmap.png")
+```
+```{r}
+pheatmap(Scfiltered_count_matrix, 
+         cluster_rows = FALSE, 
+         cluster_cols = FALSE, 
+         scale = "row",
+         main = "Heatmap of Filtered RNA-seq Data",
+         fontsize = 8
+         )
+#ggsave("../output/heatmap.png")
+```
